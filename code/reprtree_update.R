@@ -471,6 +471,13 @@ as.tree <- function(gTree,rforest){
   
   # Add splits
   fr$splits <- splits
+  
+  # make sure node IDs do not exceed 63 bits
+  if(max(nchar(x))>63){
+    closeAllConnections()
+    stop('Tree node ID string exceeds 63 bits. Try fitting a less complex forest. \n')
+  }
+  
   x <- ifelse(fr$var=='<leaf>', bl[,3], gsub('.{1}$', '', bl[,1]))
   if(nrow(gTree) == 1){x = c("1")} # If there is only one row, assign it row name = 1 so that it is designated as the root
   
@@ -486,7 +493,7 @@ as.tree <- function(gTree,rforest){
   }
   
   # Order rows
-  row.names(fr) <- bit64::as.integer64(unlist(lapply(x, strtoi_2)))
+  row.names(fr) <- as.vector(sapply(x, strtoi_2))
   fr <- fr[order(x),]
   
   # Copy to tree framework
@@ -532,14 +539,17 @@ as.tree <- function(gTree,rforest){
 
 # Convert strings to integers according to the given base
 # R strtoi function cannot handle numbers greater than 2^31
-# Therefore, user defined function is necessary
+# Therefore, user defined function is necessary for handling strings with up to 63 bits
 # https://stackoverflow.com/questions/13536832/strtoi-fails-to-convert-string-to-integer-returns-na
 #
 # @param x binary string
 strtoi_2 <- function(x) {
-  y <- as.numeric(strsplit(x, "")[[1]])
-  sum(y * 2^rev((seq_along(y)-1)))
+  y <- bit64::as.integer64(strsplit(x, "")[[1]])
+  i64 <- bit64::sum.integer64(y * 2^rev((seq_along(y)-1)))
+  bit64::as.character.integer64(i64)
 }
+
+
 
 # Convert integers to binary representation
 # 
