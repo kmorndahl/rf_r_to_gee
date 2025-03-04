@@ -472,13 +472,14 @@ as.tree <- function(gTree,rforest){
   # Add splits
   fr$splits <- splits
   
+  x <- ifelse(fr$var=='<leaf>', bl[,3], gsub('.{1}$', '', bl[,1]))
+  
   # make sure node IDs do not exceed 63 bits
   if(max(nchar(x))>63){
     closeAllConnections()
     stop('Tree node ID string exceeds 63 bits. Try fitting a less complex forest. \n')
   }
   
-  x <- ifelse(fr$var=='<leaf>', bl[,3], gsub('.{1}$', '', bl[,1]))
   if(nrow(gTree) == 1){x = c("1")} # If there is only one row, assign it row name = 1 so that it is designated as the root
   
   # Populate response variable probabilities if classification or probability forest
