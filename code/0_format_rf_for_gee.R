@@ -1,4 +1,4 @@
-# SCRIPT METADATA ==========================================================================================
+# SCRIPT METADATA ==============================================================
 # Description: R script to format a random forest model fit in 'ranger' or 'randomForest' for upload to Google Earth Engine
 # Script Author: Kathleen Orndahl & Patrick Burns
 # Script Date: 2024-08-30
@@ -9,7 +9,7 @@
 # The script can correctly encode categorical variables, but note that categorical variables are not currently supported by GEE models (unless they are one hot encoded, see below).
 # For use in GEE, categorical predictors can be one hot encoded. In this instance, each categorical level should be treated as a separate, numerical predictor during model building.
 
-# SET UP ====================================================================================================
+# SET UP =======================================================================
 
 # Libraries
 library(dplyr)
@@ -23,17 +23,18 @@ options(scipen=999) # Ensure numbers are not represented in scientific notation
 
 # Parameters
 model_generation_method = 'fit' # Choose 'fit' to fit an example model, choose 'load' to load existing model
-model_type = 'randomForest' # Specify R package used to create model - 'randomForest' or 'ranger'
+model_type = 'ranger' # Specify R package used to create model - 'randomForest' or 'ranger'
 response_type = 'regression' # Choose 'classification' or 'probability' or 'regression'
 model_fit_package = 'base' # Choose 'base' for models fit directly with 'randomForest' or 'ranger', choose 'caret' for models fit using 'caret', choose 'tidymodels' for models fit using tidymodels
 out_mod_prefix = 'mtcars_' # Name prefix to use for output model
 out_path = 'example_output/' # Where to save the formatted forest
+chunk_forest_div = 5 # Number of sub-forests to create, choose 1 for no chunking
 
 # 'load' parameters
 # Note: if loading a model, still provide the parameters above to ensure model is processed properly
 in_path = 'data/mtcars_ranger_regression.rds'
 
-# FIT OR LOAD MODEL ====================================================================================================
+# FIT OR LOAD MODEL ============================================================
 
 # Use example models, or load existing model
 if(model_generation_method == 'fit'){
@@ -46,10 +47,10 @@ if(model_generation_method == 'fit'){
   
 }else(stop("Model generation method not recognized, choose 'fit' or 'load'"))
 
-# CONVERT FOREST ====================================================================================================
+# CONVERT FOREST ===============================================================
 
 # Prep model
-rf = prep.mod(rf, model_type, response_type, model_fit_package)
+rf = prep.mod(rf, model_type, response_type, model_fit_package, chunk_forest_div)
 
 # Convert forest
-convert.forest(rf, paste0(out_path, out_mod_prefix, model_type, '_', response_type, '_', model_fit_package, '.txt'))
+convert.forest(rf, paste0(out_path, out_mod_prefix, model_type, '_', response_type, '_', model_fit_package, '_TEMP.txt'))
