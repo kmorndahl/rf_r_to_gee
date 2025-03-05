@@ -375,7 +375,6 @@ convert.forest = function(rf_mod = NULL, out_file = NULL){
   forest_str = readChar(out_file, file.info(out_file)$size)
   
   # Split by 'root' to divide into component trees
-  # Remove first item which is a floating '1) '
   forest_str = strsplit(forest_str,'END\r\n')[[1]]
   
   # Loop trees and tidy
