@@ -266,11 +266,11 @@ chunk.forest = function(rf_mod, out_file){
   int = rf_mod[[rf_mod$n_tree_var]]/rf_mod$chunk_forest_div 
   
   # Read in existing forest file
-  forest_str = readChar(out_file, file.info(out_file)$size)
+  chunk_forest_str = readChar(out_file, file.info(out_file)$size)
   
   # Split by 'root' to divide into component trees
   # Remove first item which is a floating '1) '
-  forest_str = strsplit(forest_str,'root')[[1]][-1]
+  chunk_forest_str = strsplit(chunk_forest_str,'root')[[1]][-1]
   
   # Get sub-forest tree IDs
   forest_ids = 1:rf_mod[[rf_mod$n_tree_var]]
@@ -282,15 +282,22 @@ chunk.forest = function(rf_mod, out_file){
     
     # Extract sub-forest
     tree_ids = subforest_ids[n][[1]]
-    subforest = forest_str[tree_ids]
+    subforest = chunk_forest_str[tree_ids]
     
     # Tidy sub-forest
     for(i in 1:length(subforest)){
       subforest[i] = paste0('1) root', subforest[i]) # Prepend
-      subforest[i] = substr(subforest[i], 1, nchar(subforest[i])-3) # Remove '1) ' from ends
       subforest[i] = gsub('\r', '', subforest[i]) # Remove extra line break
+      if(!(n == length(subforest_ids) & i == length(subforest))){ # If NOT last tree of last subforest
+        subforest[i] = substr(subforest[i], 1, nchar(subforest[i])-3) # Remove '1) ' from ends
+      }
     }
-    
+
+    # Remove extra line break
+    if(n != length(subforest_ids)){ # If NOT last tree of last subforest
+      subforest[length(subforest)] = substr(subforest[length(subforest)], 1, nchar(subforest[length(subforest)])-1)
+    }
+
     # Write out subforest
     subforest_file_name = paste0(strsplit(out_file, '[.]')[[1]][1], '_subforest', n, '.txt')
     writeLines(subforest, subforest_file_name, sep = '')
@@ -314,6 +321,8 @@ convert.forest = function(rf_mod = NULL, out_file = NULL){
   # Create output file
   sink(file = out_file, append = TRUE) 
   
+  # WRITE TREES INITIAL -----
+  
   # Get total number of trees
   ntrees = rf_mod[[rf_mod$n_tree_var]]
   
@@ -335,6 +344,7 @@ convert.forest = function(rf_mod = NULL, out_file = NULL){
     
     # Write tree
     print(tree_formatted)
+    cat('END\n')
     
   }
   
@@ -342,13 +352,15 @@ convert.forest = function(rf_mod = NULL, out_file = NULL){
   sink()
   closeAllConnections()
   
+  # WRITE TREES TIDY FOREST -----
+  
   # Read back in file and tidy
   tree_file = readLines(out_file)
-  tree_file  = gsub(pattern = "node\\), split, n, deviance, yval", replace = "", x = tree_file) # Remove header
-  tree_file  = gsub(pattern = "      \\* denotes terminal node", replace = "", x = tree_file) # Remove header
+  tree_file = tree_file[!grepl("split, n, deviance, yval", tree_file)] # Remove header
+  tree_file = tree_file[!grepl("denotes terminal node", tree_file)] # Remove header
   tree_file  = gsub(pattern = "\\.(?![0-9])", replace = "", x = tree_file, perl=TRUE) # Periods cannot be read by GEE, remove periods if not followed by a number
   tree_file  = gsub(pattern = "-1.0000", replace = "-1.0", x = tree_file, perl=TRUE) # Shorten terminal node placeholders
-  tree_file  = gsub(pattern = "^ ", replace = "", x = tree_file) # Remove extra leading space before nodes
+  # tree_file  = gsub(pattern = "^ ", replace = "", x = tree_file) # Remove extra leading space before nodes
   if(rf_mod$response_type == 'classification'){
     tree_file  = gsub(pattern = ", \\(yprob\\)", replace = "", x = tree_file) # Remove header
   }
@@ -356,6 +368,42 @@ convert.forest = function(rf_mod = NULL, out_file = NULL){
   
   # Overwrite tidy trees
   writeLines(tree_file, out_file)
+  closeAllConnections()
+  
+  # WRITE TREES TIDY TREES -----
+  
+  # Read in existing forest file
+  forest_str = readChar(out_file, file.info(out_file)$size)
+  
+  # Split by 'root' to divide into component trees
+  # Remove first item which is a floating '1) '
+  forest_str = strsplit(forest_str,'END\r\n')[[1]]
+  
+  # Loop trees and tidy
+  for(i in 1:length(forest_str)){
+    
+    # Get number of leading spaces -- should be zero
+    leading_spaces = nchar(sub("\\S.*$", "", forest_str[i]))
+    
+    # If there are extra leading spaces...
+    if(leading_spaces>0){
+      spaces = paste(rep(' ', leading_spaces), collapse = "") # Set up spaces
+      forest_str[i] = gsub(paste0("\n", spaces), "\n", forest_str[i]) # Remove extra space after line break
+      forest_str[i] = gsub(paste0(spaces, "1) root"), "1) root", forest_str[i]) # Remove first extra space
+    }
+    
+    # Remove extra line break
+    forest_str[i] = gsub('\r', '', forest_str[i]) 
+    
+    # Remove last line break from last tree
+    if(i == length(forest_str)){
+      forest_str[i] = substr(forest_str[i], 1, nchar(forest_str[i])-1) # Remove last line break from last tree
+    }
+    
+  }
+  
+  # Write out
+  writeLines(forest_str, out_file, sep = '')
   closeAllConnections()
   
   # Check file size
