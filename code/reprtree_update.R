@@ -231,7 +231,7 @@ prep.mod = function(init_mod, model_type, response_type, model_fit_package, chun
   }
   
   if(!(init_mod[[init_mod$n_tree_var]] %% chunk_forest_div == 0)){stop('Number of trees is not divisible by chunk forest divisor, choose a different divisor')}
-
+  
   return(init_mod)
   
 }
@@ -292,12 +292,12 @@ chunk.forest = function(rf_mod, out_file){
         subforest[i] = substr(subforest[i], 1, nchar(subforest[i])-3) # Remove '1) ' from ends
       }
     }
-
+    
     # Remove extra line break
     if(n != length(subforest_ids)){ # If NOT last tree of last subforest
       subforest[length(subforest)] = substr(subforest[length(subforest)], 1, nchar(subforest[length(subforest)])-1)
     }
-
+    
     # Write out subforest
     subforest_file_name = paste0(strsplit(out_file, '[.]')[[1]][1], '_subforest', n, '.txt')
     writeLines(subforest, subforest_file_name, sep = '')
@@ -342,85 +342,95 @@ convert.forest = function(rf_mod = NULL, out_file = NULL){
     tree_formatted = as.tree(gTree = tree, 
                              rforest = rf_mod)
     
-    # Write tree
-    print(tree_formatted)
-    cat('END\n')
-    
+    # check that tree printing succeeded
+    if(!is.na(tree_formatted)){
+      # Write tree
+      print(tree_formatted)
+      cat('END\n')
+    } else {
+      break
+    }
   }
   
   # Close connection
   sink()
   closeAllConnections()
   
-  # WRITE TREES TIDY FOREST -----
-  
-  # Read back in file and tidy
-  tree_file = readLines(out_file)
-  tree_file = tree_file[!grepl("split, n, deviance, yval", tree_file)] # Remove header
-  tree_file = tree_file[!grepl("denotes terminal node", tree_file)] # Remove header
-  tree_file  = gsub(pattern = "\\.(?![0-9])", replace = "", x = tree_file, perl=TRUE) # Periods cannot be read by GEE, remove periods if not followed by a number
-  tree_file  = gsub(pattern = "-1.0000", replace = "-1.0", x = tree_file, perl=TRUE) # Shorten terminal node placeholders
-  if(rf_mod$response_type == 'classification'){
-    tree_file  = gsub(pattern = ", \\(yprob\\)", replace = "", x = tree_file) # Remove header
-  }
-  tree_file = tree_file[which(tree_file!="")] # Remove blank lines
-  
-  # Overwrite tidy trees
-  writeLines(tree_file, out_file)
-  closeAllConnections()
-  
-  # WRITE TREES TIDY TREES -----
-  
-  # Read in existing forest file
-  forest_str = readChar(out_file, file.info(out_file)$size)
-  
-  if(.Platform$OS.type == "windows"){
-    line_ending <- "\r\n"
-  } else{
-    line_ending <- "\n"
-  }
-  
-  # Split by 'root' to divide into component trees
-  forest_str = strsplit(forest_str, paste0('END', line_ending))[[1]]
-  
-  # Loop trees and tidy
-  for(i in 1:length(forest_str)){
+  # check that number of trees successfully printed matches ntrees
+  if(i==ntrees){
+    # WRITE TREES TIDY FOREST -----
     
-    # Get number of leading spaces -- should be zero
-    leading_spaces = nchar(sub("\\S.*$", "", forest_str[i]))
+    # Read back in file and tidy
+    tree_file = readLines(out_file)
+    tree_file = tree_file[!grepl("split, n, deviance, yval", tree_file)] # Remove header
+    tree_file = tree_file[!grepl("denotes terminal node", tree_file)] # Remove header
+    tree_file  = gsub(pattern = "\\.(?![0-9])", replace = "", x = tree_file, perl=TRUE) # Periods cannot be read by GEE, remove periods if not followed by a number
+    tree_file  = gsub(pattern = "-1.0000", replace = "-1.0", x = tree_file, perl=TRUE) # Shorten terminal node placeholders
+    if(rf_mod$response_type == 'classification'){
+      tree_file  = gsub(pattern = ", \\(yprob\\)", replace = "", x = tree_file) # Remove header
+    }
+    tree_file = tree_file[which(tree_file!="")] # Remove blank lines
     
-    # If there are extra leading spaces...
-    if(leading_spaces>0){
-      spaces = paste(rep(' ', leading_spaces), collapse = "") # Set up spaces
-      forest_str[i] = gsub(paste0("\n", spaces), "\n", forest_str[i]) # Remove extra space after line break
-      forest_str[i] = gsub(paste0(spaces, "1) root"), "1) root", forest_str[i]) # Remove first extra space
+    # Overwrite tidy trees
+    writeLines(tree_file, out_file)
+    closeAllConnections()
+    
+    # WRITE TREES TIDY TREES -----
+    
+    # Read in existing forest file
+    forest_str = readChar(out_file, file.info(out_file)$size)
+    
+    if(.Platform$OS.type == "windows"){
+      line_ending <- "\r\n"
+    } else{
+      line_ending <- "\n"
     }
     
-    # Remove extra line break
-    forest_str[i] = gsub('\r', '', forest_str[i]) 
+    # Split by 'root' to divide into component trees
+    forest_str = strsplit(forest_str, paste0('END', line_ending))[[1]]
     
-    # Remove last line break from last tree
-    if(i == length(forest_str)){
-      forest_str[i] = substr(forest_str[i], 1, nchar(forest_str[i])-1) # Remove last line break from last tree
+    # Loop trees and tidy
+    for(i in 1:length(forest_str)){
+      
+      # Get number of leading spaces -- should be zero
+      leading_spaces = nchar(sub("\\S.*$", "", forest_str[i]))
+      
+      # If there are extra leading spaces...
+      if(leading_spaces>0){
+        spaces = paste(rep(' ', leading_spaces), collapse = "") # Set up spaces
+        forest_str[i] = gsub(paste0("\n", spaces), "\n", forest_str[i]) # Remove extra space after line break
+        forest_str[i] = gsub(paste0(spaces, "1) root"), "1) root", forest_str[i]) # Remove first extra space
+      }
+      
+      # Remove extra line break
+      forest_str[i] = gsub('\r', '', forest_str[i]) 
+      
+      # Remove last line break from last tree
+      if(i == length(forest_str)){
+        forest_str[i] = substr(forest_str[i], 1, nchar(forest_str[i])-1) # Remove last line break from last tree
+      }
+      
     }
     
-  }
-  
-  # Write out
-  writeLines(forest_str, out_file, sep = '')
-  closeAllConnections()
-  
-  # Check file size
-  if((file.size(out_file)>= 32000000) & (rf_mod$chunk_forest_div == 1)){
-    warning(paste0("The file size of ", out_file, " might exceed what is readable in Google Earth Engine. Consider using the 'chunk_forest_div' parameter to split the forest into equal sized chunks to facilitate import to GEE."))
-  }
-  
-  if(rf_mod$chunk_forest_div > 1){
+    # Write out
+    writeLines(forest_str, out_file, sep = '')
+    closeAllConnections()
     
-    chunk.forest(rf_mod, out_file)
-
+    # Check file size
+    if((file.size(out_file)>= 32000000) & (rf_mod$chunk_forest_div == 1)){
+      warning(paste0("The file size of ", out_file, " might exceed what is readable in Google Earth Engine. Consider using the 'chunk_forest_div' parameter to split the forest into equal sized chunks to facilitate import to GEE."))
+    }
+    
+    if(rf_mod$chunk_forest_div > 1){
+      
+      chunk.forest(rf_mod, out_file)
+      
+    }
+  } else {
+    # number of trees successfully printed did not match ntrees
+    file.remove(out_file)
+    cat("Removed tree text file because at least one tree, starting with tree number", i, "was too complex. \n")
   }
-  
 }
 
 # Functions modified from the reprtree package =================================
@@ -528,66 +538,67 @@ as.tree <- function(gTree,rforest){
   
   # make sure node IDs do not exceed 63 bits
   if(max(nchar(x))>63){
-    closeAllConnections()
-    stop('Tree node ID string exceeds 63 bits. Try fitting a less complex forest. \n')
-  }
-  
-  if(nrow(gTree) == 1){x = c("1")} # If there is only one row, assign it row name = 1 so that it is designated as the root
-  
-  # Populate response variable probabilities if classification or probability forest
-  # GEE does not actually use these so a place holder probability is used in all instances
-  # If regression, the matrix is empty nothing is added to 'fr'
-  if(rforest$model_type == 'randomForest'){
-    fr$yprob = matrix(1/length(rforest$classes),nrow=nrow(fr), ncol=length(rforest$classes))
-  } else if(rforest$model_type == 'ranger'){
-    fr$yprob = matrix(1/length(rforest$forest$levels),nrow=nrow(fr), ncol=length(rforest$forest$levels))
-  } else{
-    stop('Model type not recognized')
-  }
-  
-  # Order rows
-  row.names(fr) <- as.vector(sapply(x, strtoi_2))
-  fr <- fr[order(x),]
-  
-  # Copy to tree framework
-  newtr <- list()
-  newtr$frame=fr
-  
-  # Get number of levels for each predictor
-  if(rforest$model_type == 'randomForest'){
-    xlevels = rforest$forest$xlevels
-  }else if(rforest$model_type == 'ranger'){
-    xlevels = rforest$forest$covariate.levels
-    if(is.null(xlevels)){
-      # If the forest object does NOT have a 'covariate.levels' slot...
-      # It means there were no categorical variables and/or
-      # It means step_dummy was used to encode categorical variables
-      # We can safely assign all covariates as 0 levels
-      xlevels = as.list(rep(0, length(rforest$forest$independent.variable.names)))
-      names(xlevels) = rforest$forest$independent.variable.names
-    }else{
-      # Otherwise, convert NULL to zero in 'covariate.levels' list
-      xlevels[sapply(xlevels, is.null)]  = 0
-    }
-  }
-  
-  # Assign predictor variable levels
-  attr(newtr,'xlevels') <- xlevels
-  
-  # Assign response variable levels, if necessary
-  if(rforest$response_type == 'classification'){
+    cat('Tree node ID string exceeds 63 bits. Try fitting a less complex forest. \n')
+    return(NA)
+  } else {
+    
+    if(nrow(gTree) == 1){x = c("1")} # If there is only one row, assign it row name = 1 so that it is designated as the root
+    
+    # Populate response variable probabilities if classification or probability forest
+    # GEE does not actually use these so a place holder probability is used in all instances
+    # If regression, the matrix is empty nothing is added to 'fr'
     if(rforest$model_type == 'randomForest'){
-      attr(newtr,'ylevels') <- rforest$classes
+      fr$yprob = matrix(1/length(rforest$classes),nrow=nrow(fr), ncol=length(rforest$classes))
     } else if(rforest$model_type == 'ranger'){
-      attr(newtr,'ylevels') <- rforest$forest$levels
+      fr$yprob = matrix(1/length(rforest$forest$levels),nrow=nrow(fr), ncol=length(rforest$forest$levels))
     } else{
       stop('Model type not recognized')
     }
+    
+    # Order rows
+    row.names(fr) <- as.vector(sapply(x, strtoi_2))
+    fr <- fr[order(x),]
+    
+    # Copy to tree framework
+    newtr <- list()
+    newtr$frame=fr
+    
+    # Get number of levels for each predictor
+    if(rforest$model_type == 'randomForest'){
+      xlevels = rforest$forest$xlevels
+    }else if(rforest$model_type == 'ranger'){
+      xlevels = rforest$forest$covariate.levels
+      if(is.null(xlevels)){
+        # If the forest object does NOT have a 'covariate.levels' slot...
+        # It means there were no categorical variables and/or
+        # It means step_dummy was used to encode categorical variables
+        # We can safely assign all covariates as 0 levels
+        xlevels = as.list(rep(0, length(rforest$forest$independent.variable.names)))
+        names(xlevels) = rforest$forest$independent.variable.names
+      }else{
+        # Otherwise, convert NULL to zero in 'covariate.levels' list
+        xlevels[sapply(xlevels, is.null)]  = 0
+      }
+    }
+    
+    # Assign predictor variable levels
+    attr(newtr,'xlevels') <- xlevels
+    
+    # Assign response variable levels, if necessary
+    if(rforest$response_type == 'classification'){
+      if(rforest$model_type == 'randomForest'){
+        attr(newtr,'ylevels') <- rforest$classes
+      } else if(rforest$model_type == 'ranger'){
+        attr(newtr,'ylevels') <- rforest$forest$levels
+      } else{
+        stop('Model type not recognized')
+      }
+    }
+    
+    # Convert to tree
+    class(newtr) <- 'tree'
+    return(newtr)
   }
-  
-  # Convert to tree
-  class(newtr) <- 'tree'
-  return(newtr)
 }
 
 # Convert strings to integers according to the given base
