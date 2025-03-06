@@ -28,7 +28,7 @@ response_type = 'regression' # Choose 'classification' or 'probability' or 'regr
 model_fit_package = 'base' # Choose 'base' for models fit directly with 'randomForest' or 'ranger', choose 'caret' for models fit using 'caret', choose 'tidymodels' for models fit using tidymodels
 out_mod_prefix = 'mtcars_' # Name prefix to use for output model
 out_path = 'example_output/' # Where to save the formatted forest
-chunk_forest_div = 5 # Number of sub-forests to create, choose 1 for no chunking
+chunk_forest_div = 1 # Number of sub-forests to create, choose 1 for no chunking
 
 # 'load' parameters
 # Note: if loading a model, still provide the parameters above to ensure model is processed properly
