@@ -374,8 +374,14 @@ convert.forest = function(rf_mod = NULL, out_file = NULL){
   # Read in existing forest file
   forest_str = readChar(out_file, file.info(out_file)$size)
   
+  if(.Platform$OS.type == "windows"){
+    line_ending <- "\r\n"
+  } else{
+    line_ending <- "\n"
+  }
+  
   # Split by 'root' to divide into component trees
-  forest_str = strsplit(forest_str,'END\r\n')[[1]]
+  forest_str = strsplit(forest_str, paste0('END', line_ending))[[1]]
   
   # Loop trees and tidy
   for(i in 1:length(forest_str)){
