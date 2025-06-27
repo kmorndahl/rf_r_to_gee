@@ -16,7 +16,7 @@ This repository includes scripts and sample data to take random forest models fi
 
 ### 1. Gather files
 
-The script **0_format_ranger_for_gee.R** performs the random forest conversion. To run this script, users will need a random forest model fitted using either the 'ranger' or 'randomForest' model in R.
+The script **0_format_ranger_for_gee.R** performs the random forest conversion. To run this script, users will need a random forest model fitted using either the 'ranger' or 'randomForest' package in R.
 
 The script provides functionality to fit a test model, or users can load an existing model saved as an .RDS file.
 
